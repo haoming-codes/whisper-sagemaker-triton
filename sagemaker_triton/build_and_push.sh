@@ -40,7 +40,19 @@ aws ecr get-login-password --region "${REGION}" | docker login --username AWS --
 if [ -n "${BUILD_CACHE_DIR}" ]; then
     mkdir -p "${BUILD_CACHE_DIR}"
     echo "Using buildx local cache dir: ${BUILD_CACHE_DIR}"
+    echo "Preparing a dedicated buildx builder (docker-container driver)..."
+    BUILDER_NAME=${DOCKER_BUILDX_BUILDER:-whisper-buildx}
+
+    if ! docker buildx inspect "${BUILDER_NAME}" > /dev/null 2>&1; then
+        docker buildx create --name "${BUILDER_NAME}" --driver docker-container --use > /dev/null
+    else
+        docker buildx use "${BUILDER_NAME}" > /dev/null
+    fi
+
+    docker buildx inspect --bootstrap "${BUILDER_NAME}" > /dev/null
+
     docker buildx build \
+      --builder "${BUILDER_NAME}" \
       --load \
       --cache-from "type=local,src=${BUILD_CACHE_DIR}" \
       --cache-to "type=local,dest=${BUILD_CACHE_DIR},mode=max" \
