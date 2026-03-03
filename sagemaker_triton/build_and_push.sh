@@ -3,13 +3,21 @@
 # Accept DOCKER_IMAGE as a parameter, if not provided use a default value
 DOCKER_IMAGE=${1:-"sagemaker-endpoint/whisper-triton-byoc:latest"}
 
+# Optional target region override (2nd arg). Falls back to REGION env and then aws config.
+TARGET_REGION=${2:-${REGION:-$(aws configure get region)}}
+
+if [ -z "${TARGET_REGION}" ]; then
+    echo "Error: region is not set. Pass it as the second argument or configure aws region."
+    exit 1
+fi
+
 # Extract REPO_NAMESPACE and TAG from DOCKER_IMAGE
 REPO_NAMESPACE=$(echo $DOCKER_IMAGE | cut -d':' -f1)
 TAG=$(echo $DOCKER_IMAGE | cut -d':' -f2)
 
-# Get the ACCOUNT and REGION defined in the current configuration (default to us-west-2 if none defined)
+# Get the ACCOUNT from current AWS identity
 ACCOUNT=${ACCOUNT:-$(aws sts get-caller-identity --query Account --output text)}
-REGION=${REGION:-$(aws configure get region)}
+REGION=${TARGET_REGION}
 
 REPO_NAME="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAMESPACE}:${TAG}"
 echo ${REPO_NAME}
